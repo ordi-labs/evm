@@ -16,6 +16,10 @@ npm run dev
 npm run build
 ```
 
+## Cloudflare Pages
+
+The project is configured for Cloudflare Pages with `npm run build` as the build command and `dist` as the output directory. Production deployments are connected to the `main` branch.
+
 ## Planned before any real-fund use
 
 - Dedicated RPC configuration and server-side secret handling
