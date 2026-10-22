@@ -109,8 +109,8 @@ export default function App() {
     Polygon: ["https://polygon-bor-rpc.publicnode.com"],
     "BNB Smart Chain": ["https://bsc-rpc.publicnode.com"]
   };
-  const rpcEndpoints = (n: typeof networks[number]) => [...new Set([n.rpc, ...(rpcFallbacks[n.name] ?? [])])];
-  const provider = (rpcUrl = network.rpc) => new JsonRpcProvider(rpcUrl, network.chainId, { staticNetwork: true });
+  const rpcEndpoints = (_n: typeof networks[number]) => [window.location.origin + "/api/rpc/" + network.chainId];
+  const provider = (rpcUrl = window.location.origin + "/api/rpc/" + network.chainId) => new JsonRpcProvider(rpcUrl, network.chainId, { staticNetwork: true });
   const refreshBalance = async () => {
     if (!account) return;
     setRefreshing(true);
