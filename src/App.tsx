@@ -3,7 +3,7 @@ import { HDNodeWallet, Mnemonic, Wallet, JsonRpcProvider, formatEther, parseEthe
 import { ArrowDownLeft, ArrowUpRight, Check, ChevronDown, Copy, Eye, EyeOff, Fingerprint, Globe2, KeyRound, LockKeyhole, Plus, ShieldCheck, Wallet as WalletIcon, X, RefreshCw, LogOut } from "lucide-react";
 
 const networks = [
-  { name: "Ethereum", symbol: "ETH", chainId: 1, rpc: "https://cloudflare-eth.com", color: "#8c9cff", explorer: "https://etherscan.io" },
+  { name: "Ethereum", symbol: "ETH", chainId: 1, rpc: "https://ethereum-rpc.publicnode.com", color: "#8c9cff", explorer: "https://etherscan.io" },
   { name: "Base", symbol: "ETH", chainId: 8453, rpc: "https://mainnet.base.org", color: "#5795ff", explorer: "https://basescan.org" },
   { name: "Arbitrum One", symbol: "ETH", chainId: 42161, rpc: "https://arb1.arbitrum.io/rpc", color: "#70aaff", explorer: "https://arbiscan.io" },
   { name: "Optimism", symbol: "ETH", chainId: 10, rpc: "https://mainnet.optimism.io", color: "#ff6464", explorer: "https://optimistic.etherscan.io" },
@@ -101,19 +101,39 @@ export default function App() {
     try { await navigator.clipboard.writeText(value); setCopied(true); window.setTimeout(() => setCopied(false), 1400); }
     catch { setNotice("Clipboard access was blocked by this browser."); }
   };
-  const provider = () => new JsonRpcProvider(network.rpc, network.chainId, { staticNetwork: true });
+  const rpcFallbacks: Record<string, string[]> = {
+    Ethereum: ["https://cloudflare-eth.com", "https://eth.llamarpc.com"],
+    Base: ["https://base-rpc.publicnode.com"],
+    Arbitrum: ["https://arbitrum-one-rpc.publicnode.com"],
+    Optimism: ["https://optimism-rpc.publicnode.com"],
+    Polygon: ["https://polygon-bor-rpc.publicnode.com"],
+    "BNB Smart Chain": ["https://bsc-rpc.publicnode.com"]
+  };
+  const rpcEndpoints = (n: typeof networks[number]) => [...new Set([n.rpc, ...(rpcFallbacks[n.name] ?? [])])];
+  const provider = (rpcUrl = network.rpc) => new JsonRpcProvider(rpcUrl, network.chainId, { staticNetwork: true });
   const refreshBalance = async () => {
     if (!account) return;
     setRefreshing(true);
+    let lastError: unknown = null;
     try {
-      const p = provider();
-      const [chain, bal, fees] = await Promise.all([p.getNetwork(), p.getBalance(account.address), p.getFeeData()]);
-      if (Number(chain.chainId) !== network.chainId) throw new Error("RPC returned the wrong network.");
-      setBalance(formatEther(bal));
-      setGasFee(fees.maxFeePerGas ? (Number(fees.maxFeePerGas) / 1e9).toFixed(2) + " gwei max fee" : fees.gasPrice ? (Number(fees.gasPrice) / 1e9).toFixed(2) + " gwei gas price" : "Fee unavailable");
-      await p.destroy();
-    } catch (e) { setBalance(null); setGasFee(null); setNotice("Could not load " + network.name + " data. RPC may be unavailable or rate-limited. " + (e instanceof Error ? e.message : "")); }
-    finally { setRefreshing(false); }
+      for (const rpcUrl of rpcEndpoints(network)) {
+        const p = provider(rpcUrl);
+        try {
+          const [chain, bal, fees] = await Promise.all([p.getNetwork(), p.getBalance(account.address), p.getFeeData()]);
+          if (Number(chain.chainId) !== network.chainId) throw new Error("RPC returned the wrong network.");
+          setBalance(formatEther(bal));
+          setGasFee(fees.maxFeePerGas ? (Number(fees.maxFeePerGas) / 1e9).toFixed(2) + " gwei max fee" : fees.gasPrice ? (Number(fees.gasPrice) / 1e9).toFixed(2) + " gwei gas price" : "Fee unavailable");
+          await p.destroy();
+          return;
+        } catch (e) {
+          lastError = e;
+          await p.destroy();
+        }
+      }
+      setBalance(null);
+      setGasFee(null);
+      setNotice("Could not load " + network.name + " data. All configured RPC endpoints failed or were rate-limited. " + (lastError instanceof Error ? lastError.message : ""));
+    } finally { setRefreshing(false); }
   };
   useEffect(() => { if (mode === "wallet" && account) void refreshBalance(); else setBalance(null); }, [mode, account?.address, selectedNetwork]);
   const send = async () => {
