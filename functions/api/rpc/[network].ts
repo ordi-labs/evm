@@ -31,7 +31,6 @@ export async function onRequestPost(context: { request: Request; params: { netwo
     return Response.json({ jsonrpc: "2.0", id: payload?.id ?? null, error: { code: -32601, message: "RPC method not allowed" } }, { status: 400 });
   }
 
-  let lastResponse: Response | null = null;
   let lastBody: unknown = null;
   for (const endpoint of endpoints) {
     try {
@@ -44,7 +43,6 @@ export async function onRequestPost(context: { request: Request; params: { netwo
       const raw = await response.text();
       let body: any;
       try { body = JSON.parse(raw); } catch { body = null; }
-      lastResponse = response;
       lastBody = body;
       if (response.ok && body && !body.error) {
         return Response.json(body, { headers: { "cache-control": "no-store" } });
