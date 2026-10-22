@@ -101,16 +101,8 @@ export default function App() {
     try { await navigator.clipboard.writeText(value); setCopied(true); window.setTimeout(() => setCopied(false), 1400); }
     catch { setNotice("Clipboard access was blocked by this browser."); }
   };
-  const rpcFallbacks: Record<string, string[]> = {
-    Ethereum: ["https://cloudflare-eth.com", "https://eth.llamarpc.com"],
-    Base: ["https://base-rpc.publicnode.com"],
-    Arbitrum: ["https://arbitrum-one-rpc.publicnode.com"],
-    Optimism: ["https://optimism-rpc.publicnode.com"],
-    Polygon: ["https://polygon-bor-rpc.publicnode.com"],
-    "BNB Smart Chain": ["https://bsc-rpc.publicnode.com"]
-  };
-  const rpcEndpoints = (n: typeof networks[number]) => [...new Set([n.rpc, ...(rpcFallbacks[n.name] ?? [])])];
-  const provider = (rpcUrl = network.rpc) => new JsonRpcProvider(rpcUrl, network.chainId, { staticNetwork: true });
+  const rpcEndpoints = (_n: typeof networks[number]) => [window.location.origin + "/api/rpc/" + network.chainId];
+  const provider = (rpcUrl = window.location.origin + "/api/rpc/" + network.chainId) => new JsonRpcProvider(rpcUrl, network.chainId, { staticNetwork: true });
   const refreshBalance = async () => {
     if (!account) return;
     setRefreshing(true);
