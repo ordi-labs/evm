@@ -122,6 +122,7 @@ export default function App() {
     if (!window.confirm("Send " + amount + " " + network.symbol + " on " + network.name + " to " + sendTo + "? Check the address and network carefully. This cannot be undone.")) return;
     setBusy(true); setNotice("");
     let p: JsonRpcProvider | null = null;
+    let waitingForReceipt = false;
     try {
       p = provider();
       const [chain, bal, fees] = await Promise.all([p.getNetwork(), p.getBalance(account.address), p.getFeeData()]);
@@ -141,10 +142,11 @@ export default function App() {
       persistTxs([record, ...txs]);
       setNotice("Transaction broadcast. Hash: " + response.hash);
       setSendTo(""); setAmount("");
-      void response.wait(1).then(() => persistTxs([{ ...record, status: "confirmed" }, ...txs.filter(t => t.hash !== record.hash)] )).catch(() => persistTxs([{ ...record, status: "failed" }, ...txs.filter(t => t.hash !== record.hash)]));
+      waitingForReceipt = true;
+      void response.wait(1).then(receipt => { if (receipt) { persistTxs([{ ...record, status: "confirmed" }, ...txs.filter(t => t.hash !== record.hash)]); setNotice("Transaction confirmed. Hash: " + response.hash); } else { setNotice("Transaction was broadcast; confirmation is not available yet. Hash: " + response.hash); } if (p) void p.destroy(); }).catch(() => { setNotice("Transaction was broadcast, but confirmation could not be verified. Check the transaction hash in the explorer: " + response.hash); if (p) void p.destroy(); });
       await refreshBalance();
     } catch (e) { setNotice("Transaction not completed: " + (e instanceof Error ? e.message : "Unknown error")); }
-    finally { if (p) await p.destroy(); setBusy(false); }
+    finally { if (p && !waitingForReceipt) await p.destroy(); setBusy(false); }
   };
   const removeVault = () => {
     if (!window.confirm("Delete the encrypted vault from this browser? Make sure you have your recovery phrase backed up offline. This cannot be undone.")) return;
